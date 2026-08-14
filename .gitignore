@@ -61,6 +61,7 @@ logs/
 # Chroma
 chroma/
 chroma_db/
+chroma_store/
 
 # FAISS
 *.faiss
