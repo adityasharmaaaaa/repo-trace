@@ -63,13 +63,14 @@ def build_compressed_retriever(
     )
     return compressed_retriever
 
+
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, "..")
     from indexing.vector_store import load_vector_store
 
     persist_dir = sys.argv[1] if len(sys.argv) > 1 else "./chroma_store"
-    query = sys.argv[2] if len(sys.argv) > 2 else "how does the router decide which node to call?"
+    query = sys.argv[2] if len(sys.argv) > 2 else "How does the application generate a dashboard and decide which charts to include?"
 
     vectorstore = load_vector_store(persist_dir)
     mmr_retriever = build_mmr_retriever(vectorstore)
@@ -93,4 +94,24 @@ if __name__ == "__main__":
     compressed_results = compressed_retriever.invoke(query)
     for i, doc in enumerate(compressed_results, 1):
         print(f"\n--- result {i} ({doc.metadata.get('source')}) - {len(doc.page_content)} chars ---")
-        print(doc.page_content[:200])
+        print(doc.page_content)
+
+    print(f"\nMMR returned {len(mmr_results)} documents")
+
+    for i, doc in enumerate(mmr_results, 1):
+        print(
+            f"\n--- MMR result {i} "
+            f"({doc.metadata.get('source')}) "
+            f"- {len(doc.page_content)} chars ---"
+        )
+        print(doc.page_content)
+
+    print(f"\nCompressed retriever returned {len(compressed_results)} documents")
+
+    for i, doc in enumerate(compressed_results, 1):
+        print(
+            f"\n--- Compressed result {i} "
+            f"({doc.metadata.get('source')}) "
+            f"- {len(doc.page_content)} chars ---"
+        )
+        print(doc.page_content)
