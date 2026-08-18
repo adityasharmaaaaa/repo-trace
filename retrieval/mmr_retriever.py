@@ -70,7 +70,7 @@ if __name__ == "__main__":
     from indexing.vector_store import load_vector_store
 
     persist_dir = sys.argv[1] if len(sys.argv) > 1 else "./chroma_store"
-    query = sys.argv[2] if len(sys.argv) > 2 else "How does the application generate a dashboard and decide which charts to include?"
+    query = sys.argv[2] if len(sys.argv) > 2 else "unusual business records statistical deviation thresholds customer segments"
 
     vectorstore = load_vector_store(persist_dir)
     mmr_retriever = build_mmr_retriever(vectorstore)
