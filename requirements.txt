@@ -3,8 +3,9 @@ langchain-community
 langchain-text-splitters
 langchain-google-genai
 langchain-chroma
+langchain-tavily
+sentence-transformers
 langgraph
 chromadb
 tiktoken
 python-dotenv
- 
