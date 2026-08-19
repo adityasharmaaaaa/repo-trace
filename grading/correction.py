@@ -4,6 +4,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_tavily import TavilySearch
+from utils.llm_helpers import extract_text
 
 class QueryType(BaseModel):
     query_type: Literal["repo_specific", "general", "mixed"] = Field(
@@ -211,18 +212,7 @@ vocabulary found in these documents.""",
             }
         )
 
-    content = response.content
-
-    if isinstance(content, list):
-        text_content = "".join(
-            block.get("text", "")
-            for block in content
-            if isinstance(block, dict) and "text" in block
-        )
-    else:
-        text_content = str(content)
-
-    return text_content.strip()
+    return extract_text(response.content).strip()
     
 
 
