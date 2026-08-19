@@ -5,6 +5,7 @@ langchain-google-genai
 langchain-chroma
 langchain-tavily
 sentence-transformers
+guardrails-ai
 langgraph
 chromadb
 tiktoken
