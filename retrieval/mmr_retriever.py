@@ -6,6 +6,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_chroma import Chroma
 from langchain_classic.retrievers.document_compressors import LLMChainFilter
 from langchain_classic.retrievers import ContextualCompressionRetriever
+from langchain_core.prompts import PromptTemplate
 
 EMBEDDING_MODEL = "gemini-embedding-001"
 
@@ -56,7 +57,21 @@ def build_compressed_retriever(
     llm: ChatGoogleGenerativeAI,
 ) -> ContextualCompressionRetriever:
     
-    _filter=LLMChainFilter.from_llm(llm)
+    # Create a strict prompt that discourages repeating the question's phrasing
+    strict_prompt = PromptTemplate(
+        template="""Given the following question and context, determine if the context is relevant. 
+You must respond with EXACTLY one word: YES or NO. 
+Do not include any other words, punctuation, or explanations.
+
+Question: {question}
+Context: {context}
+
+Answer:""",
+        input_variables=["question", "context"],
+    )
+    
+    _filter = LLMChainFilter.from_llm(llm, prompt=strict_prompt)
+    
     compressed_retriever = ContextualCompressionRetriever(
         base_compressor=_filter,
         base_retriever=base_retriever,
@@ -70,7 +85,7 @@ if __name__ == "__main__":
     from indexing.vector_store import load_vector_store
 
     persist_dir = sys.argv[1] if len(sys.argv) > 1 else "./chroma_store"
-    query = sys.argv[2] if len(sys.argv) > 2 else "unusual business records statistical deviation thresholds customer segments"
+    query = sys.argv[2] if len(sys.argv) > 2 else "What is the implementation strategy for identifying unusual business records using standardized statistical deviation thresholds within customer-segment-specific cohorts?"
 
     vectorstore = load_vector_store(persist_dir)
     mmr_retriever = build_mmr_retriever(vectorstore)
