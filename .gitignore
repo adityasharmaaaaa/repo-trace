@@ -67,6 +67,9 @@ chroma_store/
 *.faiss
 *.pkl
 
+debug_raw_grade.py
+debug_retrieval.py
+
 # Local vector databases
 vectorstore/
 vector_store/

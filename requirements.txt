@@ -10,3 +10,4 @@ langgraph
 chromadb
 tiktoken
 python-dotenv
+ragas

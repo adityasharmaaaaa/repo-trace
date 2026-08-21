@@ -8,6 +8,29 @@ from langchain_classic.retrievers.document_compressors import LLMChainFilter
 from langchain_classic.retrievers import ContextualCompressionRetriever
 from langchain_core.prompts import PromptTemplate
 
+from langchain_core.documents import Document
+from langchain_core.documents.compressor import BaseDocumentCompressor
+from pydantic import BaseModel, Field
+
+
+class RelevanceDecision(BaseModel):
+    relevant: bool = Field(..., description="Whether this document is relevant to the query.")
+
+
+class StructuredRelevanceFilter(BaseDocumentCompressor):
+    llm: ChatGoogleGenerativeAI
+
+    def compress_documents(self, documents, query, callbacks=None) -> List[Document]:
+        judge = self.llm.with_structured_output(RelevanceDecision)
+        kept = []
+        for doc in documents:
+            decision = judge.invoke(
+                f"Question: {query}\n\nDocument:\n{doc.page_content}\n\n"
+                "Is this document relevant enough to help answer the question?"
+            )
+            if decision.relevant:
+                kept.append(doc)
+        return kept
 EMBEDDING_MODEL = "gemini-embedding-001"
 
 
@@ -57,23 +80,11 @@ def build_compressed_retriever(
     llm: ChatGoogleGenerativeAI,
 ) -> ContextualCompressionRetriever:
     
-    # Create a strict prompt that discourages repeating the question's phrasing
-    strict_prompt = PromptTemplate(
-        template="""Given the following question and context, determine if the context is relevant. 
-You must respond with EXACTLY one word: YES or NO. 
-Do not include any other words, punctuation, or explanations.
-
-Question: {question}
-Context: {context}
-
-Answer:""",
-        input_variables=["question", "context"],
-    )
-    
-    _filter = LLMChainFilter.from_llm(llm, prompt=strict_prompt)
+    # Create a strict prompt that discourages repeating the question's phrasin
+    compressor = StructuredRelevanceFilter(llm=llm)
     
     compressed_retriever = ContextualCompressionRetriever(
-        base_compressor=_filter,
+        base_compressor=compressor,
         base_retriever=base_retriever,
     )
     return compressed_retriever
