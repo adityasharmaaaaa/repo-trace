@@ -16,7 +16,6 @@ from graph.build_graph import build_graph
 
 
 # -----------------------------------
-# Swapped to 1.5-flash to support n > 1 candidate generation for ResponseRelevancy
 JUDGE_MODEL = "gemini-3.6-flash"
 EMBEDDING_MODEL = "gemini-embedding-001"
 
