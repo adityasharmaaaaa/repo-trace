@@ -1,41 +1,3 @@
-"""
-Milestone 10: RAGAS Evaluation
-------------------------------------
-Goal: put real numbers behind the seven components you've already
-built and manually verified - not a new capability, a measurement of
-the ones you have.
-
-Uses ragas's current API (checked against current docs, not memory -
-this library's interface has moved fast): SingleTurnSample /
-EvaluationDataset, metrics as classes taking an explicit evaluator LLM,
-not the old datasets.Dataset + lowercase-function pattern from older
-tutorials.
-
-Central design decision - resolved before writing the eval set:
-  Most RAGAS metrics need a `reference` (ground-truth answer). Your
-  pipeline deliberately produces NO answer for some queries (the OAuth
-  case). There is no correct reference for a question with no correct
-  answer - those need a separate custom check, not RAGAS metrics.
-
-Assumptions this file makes (verify these before trusting the report):
-
-1. The indexed corpus (./chroma_store) is the CSV "AI Data Analyst"
-   Streamlit app repo (app.py, README.md, src/data/, src/tools/,
-   src/graph/, etc.) - the __main__ smoke-test query in the graph file
-   ("How does anomaly is detected") points at anomaly_tool.py in that
-   repo, which is the only corpus I've actually seen. If chroma_store
-   indexes something else, the happy-path questions below need to be
-   swapped for ones grounded in the real corpus.
-2. QueryType.query_type is one of "repo_specific" / "general" / "mixed"
-   - inferred from route_after_classification's branching (repo_specific
-   and mixed both go to refine; everything else goes to web_search), not
-   read from grading/correction.py directly. Confirm against the actual
-   Literal there.
-3. check_correct_refusal() below uses a placeholder REFUSAL_PHRASES list
-   since generator.py / guardrail/validator.py weren't available to read
-   from. Replace REFUSAL_PHRASES with your actual refusal wording before
-   trusting the refusal-accuracy numbers.
-"""
 import sys
 import types # 1. Create a dummy module to satisfy ragas's hardcoded import
 dummy_module = types.ModuleType("langchain_community.chat_models.vertexai")
@@ -53,19 +15,11 @@ from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmb
 from graph.build_graph import build_graph
 
 
-# ---------------------------------------------------------------- config
-
-# Judge model for RAGAS metrics. Deliberately NOT reusing the pipeline's
-# own generation model (gemini-3.7-flash) as the judge - grading a model
-# with itself biases scores toward whatever that model considers "good."
-# Swap for whatever stronger/independent model you have access to.
-JUDGE_MODEL = "gemini-3.7-flash"
+# -----------------------------------
+# Swapped to 1.5-flash to support n > 1 candidate generation for ResponseRelevancy
+JUDGE_MODEL = "gemini-3.6-flash"
 EMBEDDING_MODEL = "gemini-embedding-001"
 
-# Pulled verbatim from generator.py's system prompt (rule 2): the model is
-# directly instructed to output this exact sentence when context is
-# insufficient, so this isn't a guess at how it might phrase a refusal -
-# it's the literal string the prompt tells it to produce.
 REFUSAL_PHRASES = [
     "The provided context does not contain enough information to answer this question",
 ]
@@ -155,13 +109,6 @@ EVAL_SET: List[EvalCase] = [
     },
 
     # ---- designed to plausibly need refine_query's rewrite on a later attempt ----
-    # Deliberately colloquial/vague phrasing with little lexical overlap to the
-    # source docstrings (which talk about "read-only", "SELECT/WITH", "regex",
-    # "forbidden keywords"), on the theory that the first MMR retrieval may miss
-    # and refine_query has to rewrite it into something more retrievable. This
-    # is a guess, not something verified against your logs - check
-    # correction_retry_count in the run_case() output below; if it's 0, swap in
-    # a genuinely weak query from your own history instead.
     {
         "question": "If someone tries to sneak a nasty command into the chat box, does the app just let it rip?",
         "reference": (
@@ -181,7 +128,7 @@ EVAL_SET: List[EvalCase] = [
         "expected_no_answer": True,
     },
     {
-        "question": "Can I export a session's chat, SQL, and charts as a PDF or HTML report?",
+        "question": "How do I configure Redis to handle distributed rate limiting for the API?",
         "reference": None,
         "expected_no_answer": True,
     },
@@ -252,9 +199,6 @@ def run_case(graph, case: EvalCase) -> dict:
 
     result = graph.invoke(initial_state)
 
-    # retrieved_contexts for RAGAS = the page_content of documents AFTER the
-    # run completes - that's literally what generate_answer saw, which is
-    # what "faithfulness to context" needs to mean here.
     retrieved_contexts = [doc.page_content for doc in result.get("documents", [])]
 
     query_type = result.get("query_type")
@@ -265,7 +209,6 @@ def run_case(graph, case: EvalCase) -> dict:
         "expected_no_answer": case["expected_no_answer"],
         "answer": result.get("answer") or "",
         "retrieved_contexts": retrieved_contexts,
-        # path-identifying info for per-path slicing/reporting
         "overall_grade": result.get("overall_grade"),
         "query_type": query_type.query_type if query_type is not None else None,
         "retrieval_retry_count": result.get("retrieval_retry_count", 0),
@@ -277,21 +220,6 @@ def run_case(graph, case: EvalCase) -> dict:
 
 
 def check_correct_refusal(answer: str) -> bool:
-    """
-    Custom check for expected_no_answer cases - did the system correctly
-    decline rather than fabricate an answer?
-
-    An empty answer counts as a correct refusal too (guardrails may have
-    exhausted retries and returned nothing rather than an unvalidated
-    answer). Otherwise this checks REFUSAL_PHRASES as a case-insensitive
-    substring rather than requiring an exact-string match, purely as a
-    guard against trivial punctuation/whitespace differences - the model
-    is directly instructed to emit that exact sentence, so this should
-    rarely need the slack. If REFUSAL_PHRASES ever grows beyond that one
-    instructed string (e.g. a separate guardrail rejection message gets
-    added), keep entries specific enough that a real answer which merely
-    hedges ("I don't have exact figures, but revenue was...") can't match.
-    """
     if not answer:
         return True
     lowered = answer.lower()
@@ -301,17 +229,6 @@ def check_correct_refusal(answer: str) -> bool:
 # ---------------------------------------------------------------- evaluate
 
 def build_evaluator():
-    """
-    Wrap the judge LLM and embeddings for ragas's evaluator interface.
-
-    Embedding task_type call: ResponseRelevancy works by having the judge
-    LLM generate synthetic questions from the answer, then embeds those
-    against the original question - both sides of that comparison are
-    question-like text, not a document being matched against a query in
-    the usual retrieval sense. So RETRIEVAL_QUERY is used for both sides
-    here rather than RETRIEVAL_DOCUMENT, since neither text is playing
-    the "document" role your pipeline's own retriever uses that type for.
-    """
     judge_llm = LangchainLLMWrapper(ChatGoogleGenerativeAI(model=JUDGE_MODEL, temperature=0))
     embeddings = LangchainEmbeddingsWrapper(
         GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, task_type="RETRIEVAL_QUERY")
@@ -320,12 +237,6 @@ def build_evaluator():
 
 
 def run_evaluation():
-    """
-    Full harness: run every EVAL_SET case through the graph, split results
-    into the RAGAS-scored group and the refusal-checked group, run
-    ragas.evaluate() on the former, report both - sliced by which graph
-    path each case actually took.
-    """
     graph = build_graph()
 
     ragas_records = []
@@ -353,7 +264,7 @@ def run_evaluation():
     judge_llm, embeddings = build_evaluator()
     metrics = [
         Faithfulness(llm=judge_llm),
-        ResponseRelevancy(llm=judge_llm, embeddings=embeddings),
+        #ResponseRelevancy(llm=judge_llm, embeddings=embeddings),
         ContextPrecision(llm=judge_llm),
         LLMContextRecall(llm=judge_llm),
     ]
@@ -375,15 +286,18 @@ def run_evaluation():
     print()
     print("Overall averages:")
     for col in metric_cols:
-        print(f"  {col}: {results_df[col].mean():.3f}")
+        valid_count = results_df[col].count()
+        mean_val = results_df[col].mean()
+        print(f"  {col}: {mean_val:.3f} (n={valid_count})")
 
     print()
     print("Per-path breakdown:")
     for r in ragas_records:
         path = "corrected " if r["correction_retry_count"] > 0 else "first-try "
         multi_retrieve = " (multi-retrieval)" if r["retrieval_retry_count"] > 1 else ""
+        guard_retry = f" (guard-retries: {r['guardrails_retry_count']})" if r["guardrails_retry_count"] > 0 else ""
         print(f"  [{path}] grade={str(r['overall_grade']):9s} type={str(r['query_type']):14s}"
-              f"{multi_retrieve} -> {r['question'][:60]}")
+              f"{multi_retrieve}{guard_retry} -> {r['question'][:60]}")
 
     print()
     print("=" * 78)

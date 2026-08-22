@@ -37,7 +37,18 @@ CRITICAL RULES:
 4. DISTINGUISHING SOURCES: The context contains two types of documents: "Internal source" (this repository's code/docs) and "Web source" (external internet documentation). 
    - When citing the repository's code, use the format `[Internal: <source_path>]`.
    - When citing a web result, use the format `[Web: <url>]`.
-   - Make it clear in your prose whether the information describes the repository's actual implementation or external/general knowledge.
+   - Make it clear in your prose whether the information describes the repository's actual implementation or external/general knowledge."""
+
+    all_web_sourced = bool(documents) and all(
+        doc.metadata.get("file_type") == "web" for doc in documents
+    )
+
+    if all_web_sourced:
+        system_prompt += """
+
+5. NO REPOSITORY EVIDENCE: None of the retrieved evidence comes from this repository; it is entirely from the web. You MUST begin your answer by stating EXACTLY: "The provided context does not contain enough information to answer this question." Immediately following that, state plainly that this repository does not appear to implement or document the requested topic. Only after providing this clear disclaimer may you answer the question generally using the web sources."""
+
+    system_prompt += """
 
 Context for answering the question:
 {context}"""

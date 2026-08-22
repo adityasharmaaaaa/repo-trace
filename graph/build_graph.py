@@ -20,16 +20,8 @@ LLM_MODEL = "gemini-3.7-flash"
 MAX_CORRECTION_RETRIES = 2
 MAX_GUARDRAILS_RETRIES = 2
 
-# Toggle for the debug prints in guardrails_node / classify_node /
-# refine_node / web_search_node. Leave off for normal runs; turn on
-# when a citation-validation failure looks wrong, or when you need to
-# confirm which path (correct-first-try / corrected / web-fallback /
-# mixed) a given run actually took.
 DEBUG = True
 
-# global instances to avoid re-instantiating on every node call - the
-# graph is compiled once and invoked many times, so these are built at
-# module import time (same pattern as the reranker's CrossEncoder).
 llm = ChatGoogleGenerativeAI(
     model=LLM_MODEL,
     temperature=0,
@@ -286,12 +278,10 @@ if __name__ == "__main__":
     graph = build_graph()
     print(graph.get_graph().print_ascii())
 
-    # Example end-to-end invocation - all counters/lists must be seeded
-    # since the initial input dict isn't produced by any node.
     result = graph.invoke(
         {
-            "original_query": "How does anomaly is detected",
-            "current_query": "How does anomaly is detected",
+            "original_query": "How do I configure Redis to handle distributed rate limiting for the API?",
+            "current_query": "How do I configure Redis to handle distributed rate limiting for the API?",
             "documents": [],
             "grades": [],
             "overall_grade": None,
