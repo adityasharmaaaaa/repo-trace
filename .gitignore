@@ -117,3 +117,5 @@ huggingface_cache/
 # =========================
 Thumbs.db
 .DS_Store
+# repo-trace: cloned repos and their indexes
+data/

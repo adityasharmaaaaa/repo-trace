@@ -215,7 +215,17 @@ uv venv .venv --python 3.12 && source .venv/bin/activate
 uv pip install -r requirements.txt   # or: pip install -r requirements.txt
 ```
 
-**1. Build the index** against a target repository:
+**Web UI (recommended for demos):**
+
+```bash
+streamlit run app.py
+```
+
+Paste any public GitHub URL (optionally `/tree/<branch>`) into the sidebar. It is shallow-cloned and indexed into `./data/`, and you can then ask questions while watching each graph step live: retrieved chunks, per-chunk grades, query classification, query rewrites, web results, rerank scores and the guardrails verdict. Citations link to the exact file at the indexed commit. Only `.py` and `.md` files are indexed; `REPO_TRACE_MAX_FILES` (default 400) caps repo size.
+
+The same can be done from the CLI: `python -m workspace.repos https://github.com/owner/repo`.
+
+**1. Build the index** against a local repository:
 
 ```bash
 python -m indexing.vector_store /path/to/target/repo ./chroma_store
@@ -257,6 +267,11 @@ python -m evals.ragas_eval
 │   └── validator.py       # ValidCitations validator
 ├── graph/
 │   └── build_graph.py     # LangGraph StateGraph wiring + routing
+├── workspace/
+│   └── repos.py           # GitHub URL → shallow clone → per-repo index + registry
+├── utils/
+│   └── models.py          # Groq LLMs + embedding provider config
+├── app.py                 # Streamlit demo UI
 └── evals/
     └── ragas_eval.py      # RAGAS + refusal-accuracy evaluation harness
 ```

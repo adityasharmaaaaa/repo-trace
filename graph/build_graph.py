@@ -21,10 +21,9 @@ MAX_GUARDRAILS_RETRIES = 2
 
 DEBUG = True
 
+DEFAULT_PERSIST_DIR = "./chroma_store"
+
 llm = get_llm("generation")
-vectorstore = load_vector_store("./chroma_store")
-mmr_retriever = build_mmr_retriever(vectorstore)
-compressed_retriever = build_compressed_retriever(mmr_retriever, llm)
 guard = build_guarded_generation_guard()
 
 # ---------------------------------------------------------------- state
@@ -68,19 +67,27 @@ def _is_mixed(state: "AgentState") -> bool:
 # ---------------------------------------------------------------- nodes
 
 
-def retrieve_node(state: AgentState) -> dict:
-    """Run MMR + contextual compression against state["current_query"]."""
-    try:
-        docs = compressed_retriever.invoke(state["current_query"])
-    except ValueError as e:
-        if DEBUG:
-            print(f"[retrieve_node] Compressor failed: {e}. Falling back to base MMR.")
-        docs = mmr_retriever.invoke(state["current_query"])
+def make_retrieve_node(persist_dir: str):
+    """Build a retrieve node bound to the Chroma index at persist_dir."""
+    vectorstore = load_vector_store(persist_dir)
+    mmr_retriever = build_mmr_retriever(vectorstore)
+    compressed_retriever = build_compressed_retriever(mmr_retriever, llm)
 
-    return {
-        "documents": docs,
-        "retrieval_retry_count": state.get("retrieval_retry_count", 0) + 1,
-    }
+    def retrieve_node(state: AgentState) -> dict:
+        """Run MMR + contextual compression against state["current_query"]."""
+        try:
+            docs = compressed_retriever.invoke(state["current_query"])
+        except ValueError as e:
+            if DEBUG:
+                print(f"[retrieve_node] Compressor failed: {e}. Falling back to base MMR.")
+            docs = mmr_retriever.invoke(state["current_query"])
+
+        return {
+            "documents": docs,
+            "retrieval_retry_count": state.get("retrieval_retry_count", 0) + 1,
+        }
+
+    return retrieve_node
 
 
 def grade_node(state: AgentState) -> dict:
@@ -210,10 +217,27 @@ def route_after_guardrails(state: AgentState) -> str:
 # ------------------------------------------------------------- build
 
 
-def build_graph() -> StateGraph:
+def initial_state(query: str) -> AgentState:
+    return {
+        "original_query": query,
+        "current_query": query,
+        "documents": [],
+        "grades": [],
+        "overall_grade": None,
+        "query_type": None,
+        "answer": None,
+        "guardrails_passed": None,
+        "guardrails_errors": [],
+        "retrieval_retry_count": 0,
+        "correction_retry_count": 0,
+        "guardrails_retry_count": 0,
+    }
+
+
+def build_graph(persist_dir: str = DEFAULT_PERSIST_DIR) -> StateGraph:
     graph = StateGraph(AgentState)
 
-    graph.add_node("retrieve", retrieve_node)
+    graph.add_node("retrieve", make_retrieve_node(persist_dir))
     graph.add_node("grade", grade_node)
     graph.add_node("classify", classify_node)
     graph.add_node("refine", refine_node)
