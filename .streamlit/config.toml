@@ -1,0 +1,7 @@
+[theme]
+primaryColor = "#4F5BD5"
+baseRadius = "medium"
+showSidebarBorder = true
+
+[client]
+toolbarMode = "minimal"
