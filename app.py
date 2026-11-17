@@ -31,7 +31,48 @@ st.set_page_config(page_title="repo-trace", page_icon="🔎", layout="wide")
 st.markdown(
     """
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+      html, body, .stApp, .stMarkdown, button, input, textarea { font-family: 'Inter', system-ui, sans-serif; }
+      [data-testid="stIconMaterial"] { font-family: 'Material Symbols Rounded' !important; }
+      code, pre, .chip, .step b { font-family: 'JetBrains Mono', ui-monospace, monospace !important; }
       .block-container { padding-top: 2rem; max-width: 1200px; }
+      h1, h2, h3 { letter-spacing: -0.01em; }
+
+      /* ---------- overview ---------- */
+      .rt-hero { padding: 2.5rem 0 1.5rem; border-bottom: 1px solid rgba(127,127,127,.18); margin-bottom: 2.25rem; }
+      .rt-eyebrow { font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; opacity: .6; font-weight: 600; }
+      .rt-title { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: clamp(2.3rem, 5vw, 3.6rem);
+                  line-height: 1.05; margin: .9rem 0 1.1rem; letter-spacing: -0.015em; }
+      .rt-title em { color: #4F5BD5; font-style: italic; }
+      .rt-lede { font-size: 1.08rem; line-height: 1.65; opacity: .78; max-width: 62ch; }
+      .rt-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0;
+                  margin-top: 2rem; border-top: 1px solid rgba(127,127,127,.18); }
+      .rt-stat { padding: 1.1rem 1.2rem 0 0; }
+      .rt-stat .v { font-family: 'Instrument Serif', Georgia, serif; font-size: 2.3rem; line-height: 1; }
+      .rt-stat .l { font-size: .78rem; opacity: .6; margin-top: .4rem; letter-spacing: .02em; }
+      .rt-section { margin: 2.75rem 0 1rem; }
+      .rt-kicker { font-family: 'JetBrains Mono', monospace; font-size: .72rem; opacity: .5; letter-spacing: .08em; }
+      .rt-h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 2rem; margin: .2rem 0 1.2rem; }
+      .rt-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+      .rt-grid.four { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+      .rt-card { border: 1px solid rgba(127,127,127,.2); border-radius: 10px; padding: 1.2rem 1.3rem;
+                 background: rgba(127,127,127,.03); }
+      .rt-card h4 { margin: 0 0 .45rem; font-size: 1rem; font-weight: 600; padding: 0; }
+      .rt-card p { margin: 0; font-size: .92rem; line-height: 1.6; opacity: .78; }
+      .rt-card .n { font-family: 'JetBrains Mono', monospace; font-size: .75rem; color: #4F5BD5; margin-bottom: .6rem; }
+      .rt-card.muted { background: transparent; }
+      .rt-card.accent { border-color: rgba(79,91,213,.45); background: rgba(79,91,213,.06); }
+      .rt-tags { display: flex; flex-wrap: wrap; gap: .45rem; }
+      .rt-tag { border: 1px solid rgba(127,127,127,.25); border-radius: 999px; padding: .25rem .75rem; font-size: .82rem; }
+      .rt-tag span { opacity: .55; margin-right: .35rem; }
+      .rt-foot { margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid rgba(127,127,127,.18);
+                 font-size: .85rem; opacity: .6; }
+      .rt-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+      .rt-table td { padding: .7rem .4rem; border-bottom: 1px solid rgba(127,127,127,.15); vertical-align: top; }
+      .rt-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: .85rem; white-space: nowrap; width: 1%; padding-right: 1.5rem; }
+      .rt-table td:last-child { opacity: .8; }
+
+      /* ---------- trace ---------- */
       .step { padding: .55rem .8rem; border-left: 3px solid var(--accent, #6b7280);
               margin: .35rem 0; border-radius: 4px; background: rgba(127,127,127,.06); }
       .step b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -357,8 +398,135 @@ digraph G {
 """
 
 
+def html(markup: str) -> None:
+    """Render raw HTML; lines are stripped so Markdown doesn't treat indentation as code."""
+    st.markdown("\n".join(line.strip() for line in markup.splitlines() if line.strip()),
+                unsafe_allow_html=True)
+
+
+def section(kicker: str, title: str) -> None:
+    html(f"<div class='rt-section'><div class='rt-kicker'>{kicker}</div><div class='rt-h2'>{title}</div></div>")
+
+
+def cards(items, numbered: bool = False, cls: str = "", grid: str = "") -> None:
+    body = "".join(
+        f"<div class='rt-card {cls}'>"
+        + (f"<div class='n'>{i:02d}</div>" if numbered else "")
+        + f"<h4>{title}</h4><p>{text}</p></div>"
+        for i, (title, text) in enumerate(items, 1)
+    )
+    html(f"<div class='rt-grid {grid}'>{body}</div>")
+
+
+def overview_tab() -> None:
+    html(
+        """
+        <div class="rt-hero">
+          <div class="rt-eyebrow">Corrective RAG &nbsp;·&nbsp; LangGraph &nbsp;·&nbsp; Codebase intelligence</div>
+          <div class="rt-title">Answers about code that<br><em>know when they don't know.</em></div>
+          <div class="rt-lede">
+            repo-trace is a question-answering assistant for unfamiliar GitHub repositories.
+            Unlike plain retrieval-augmented generation, it grades the evidence it retrieves,
+            corrects course when that evidence is weak, and verifies every citation before an
+            answer is shown.
+          </div>
+          <div class="rt-stats">
+            <div class="rt-stat"><div class="v">0.884</div><div class="l">Faithfulness · RAGAS</div></div>
+            <div class="rt-stat"><div class="v">0.839</div><div class="l">Context precision · RAGAS</div></div>
+            <div class="rt-stat"><div class="v">0.723</div><div class="l">Context recall · RAGAS</div></div>
+            <div class="rt-stat"><div class="v">8</div><div class="l">Graph nodes · 2 retry loops</div></div>
+          </div>
+        </div>
+        """
+    )
+
+    section("01 — MOTIVATION", "Why it exists")
+    c1, c2 = st.columns(2, gap="medium")
+    with c1:
+        cards([("The problem",
+                "Onboarding to a new codebase is slow, and most RAG demos make it subtly worse: "
+                "they answer confidently even when retrieval was weak. Three barely-related chunks "
+                "still get stuffed into a prompt, and the model synthesises a plausible, wrong answer.")],
+              cls="muted")
+    with c2:
+        cards([("The approach",
+                "<b>Grade retrieval before trusting it.</b> Every retrieved chunk is judged "
+                "<i>correct</i>, <i>ambiguous</i> or <i>incorrect</i>, and that verdict drives a "
+                "specific corrective action — refine the query, fall back to the web, or proceed — "
+                "rather than blindly retrying the same search.")],
+              cls="accent")
+
+    section("02 — PIPELINE", "The life of a question")
+    cards([
+        ("Retrieve",
+         "Language-aware chunks, asymmetric query/document embeddings, diversity-tuned MMR, "
+         "then an LLM relevance filter that drops off-topic chunks."),
+        ("Grade",
+         "Each surviving chunk is graded against the question. One genuinely relevant chunk "
+         "is enough to proceed; otherwise the pipeline corrects itself."),
+        ("Correct",
+         "The question is classified as repo-specific, general or mixed. Repo questions are "
+         "rewritten with vocabulary from the code; general ones go to live web search."),
+        ("Answer & verify",
+         "A cross-encoder reranks the evidence, the answer is generated with inline citations, "
+         "and a guardrail rejects any citation not backed by this run's evidence."),
+    ], numbered=True, grid="four")
+
+    section("03 — ENGINEERING", "Decisions that matter")
+    cards([
+        ("Idempotent indexing",
+         "Chunk IDs are <code>sha256(path):index</code> per file, so re-indexing never "
+         "duplicates data and editing one file never shifts another's IDs."),
+        ("Two independent retry budgets",
+         "Retrieval corrections and citation regenerations are capped separately, so one "
+         "failure mode can't exhaust the budget meant for the other."),
+        ("Structured relevance filtering",
+         "A custom compressor with typed structured output replaced a free-text YES/NO parser "
+         "that silently broke on real model responses."),
+        ("Honest out-of-scope answers",
+         "When every piece of evidence comes from the web, the answer must open by saying "
+         "the repository itself doesn't cover the topic."),
+        ("Evaluated per route",
+         "RAGAS scores are sliced by the path each query took through the graph, with "
+         "refusal accuracy scored separately for unanswerable questions."),
+        ("Live, inspectable runs",
+         "Every graph step streams to the UI — grades, rewrites, web results, rerank scores "
+         "and the guardrail verdict — with citations linked to the exact commit."),
+    ])
+
+    section("04 — STACK", "Built with")
+    stack = [
+        ("Orchestration", "LangGraph"), ("LLM", "Groq · gpt-oss-120b"), ("Embeddings", "BGE-small-en-v1.5"),
+        ("Vector store", "Chroma"), ("Retrieval", "MMR + compression"), ("Reranker", "ms-marco MiniLM cross-encoder"),
+        ("Web fallback", "Tavily"), ("Guardrails", "guardrails-ai"), ("Evaluation", "RAGAS"), ("Interface", "Streamlit"),
+    ]
+    html("<div class='rt-tags'>" + "".join(f"<div class='rt-tag'><span>{k}</span>{v}</div>" for k, v in stack) + "</div>")
+
+    html(
+        """
+        <div class="rt-foot">
+          Open the <b>Ask</b> tab, add any public GitHub repository from the sidebar, and watch
+          the pipeline reason about it step by step.
+        </div>
+        """
+    )
+
+
+NODES = [
+    ("retrieve", "MMR + contextual-compression retrieval against the current query."),
+    ("grade", "Grades every chunk correct / ambiguous / incorrect and aggregates an overall grade."),
+    ("classify", "Labels the query repo_specific, general or mixed — reached only when retrieval fell short."),
+    ("refine", "Rewrites the query using vocabulary from what was retrieved, or broadens it if nothing was."),
+    ("web_search", "Live Tavily search for general-knowledge evidence."),
+    ("rerank", "Cross-encoder reranking of the accumulated evidence pool."),
+    ("generate", "Grounded answer with inline [Internal: …] / [Web: …] citations."),
+    ("guardrails", "Rejects any citation not present in this run's evidence; triggers regeneration."),
+]
+
+
 def how_tab() -> None:
-    left, right = st.columns([3, 2])
+    section("ARCHITECTURE", "A self-correcting graph")
+    left, right = st.columns([3, 2], gap="large")
     with left:
         st.graphviz_chart(GRAPH_DOT, width="stretch")
     with right:
@@ -384,26 +552,81 @@ doesn't cover the topic.
 """
         )
 
+    section("NODES", "What each step does")
+    html("<table class='rt-table'>" + "".join(f"<tr><td>{n}</td><td>{d}</td></tr>" for n, d in NODES) + "</table>")
+
+
+def eval_tab() -> None:
+    section("EVALUATION", "Measured, not assumed")
+    cols = st.columns(3)
+    cols[0].metric("Faithfulness", "0.884", help="Are answer claims supported by the retrieved context?")
+    cols[1].metric("Context precision", "0.839", help="Is the retrieved context on-topic?")
+    cols[2].metric("Context recall", "0.723", help="Was all the relevant context retrieved?")
+    st.caption("RAGAS, n = 8 hand-written cases with reference answers, run against an independently built "
+               "codebase (an AI-powered CSV data-analyst app). Reproduce with `python -m evals.ragas_eval`.")
+
+    section("METHOD", "How it was evaluated")
+    cards([
+        ("Reference-answer cases",
+         "Scored on faithfulness, context precision and LLM context recall, reported with the "
+         "sample count alongside every mean."),
+        ("Refusal accuracy",
+         "Questions with no answer in the repo (e.g. OAuth setup) are scored separately — the "
+         "correct behaviour is a clean refusal, and there is no reference answer to compare."),
+        ("Per-route breakdown",
+         "Results are sliced by the path taken: first-try vs. corrected, single vs. multi-retrieval, "
+         "and whether guardrails forced a regeneration."),
+    ])
+
+    section("READING THE NUMBERS", "What they say")
+    st.markdown(
+        "High faithfulness and precision mean answers stay grounded and retrieved context is on-topic. "
+        "Recall trailing behind is the more informative signal: even when evidence is precise, the "
+        "retriever doesn't always surface *every* relevant chunk — consistent with the limitations below "
+        "rather than a generation-quality problem."
+    )
+
+    section("LIMITATIONS & NEXT STEPS", "Documented on purpose")
+    c1, c2 = st.columns(2, gap="medium")
+    with c1:
+        cards([
+            ("General queries skip internal retries",
+             "A query misclassified as general is routed to the web without another repo attempt."),
+            ("Low-information chunks can win MMR slots",
+             "A markdown divider may be picked for diversity; compression removes it downstream, at a cost."),
+            ("Borderline classification can flip",
+             "Even at temperature 0, ambiguous phrasing can alternate between repo_specific and mixed."),
+        ], cls="muted")
+    with c2:
+        cards([
+            ("Line-level citations",
+             "Point at exact line ranges instead of whole files."),
+            ("One internal retry for general queries",
+             "Try the repo once more before routing away from it entirely."),
+            ("Merge compression and grading",
+             "Both ask a similar relevance question of the same chunks — one LLM pass could do both."),
+        ], cls="accent")
+
 
 # ------------------------------------------------------------------ main
 
 
 def main() -> None:
     repo = sidebar()
-    st.title("repo-trace")
-    st.caption("Ask questions about any public GitHub repository and see how the "
-               "corrective RAG pipeline grades, corrects and verifies its own retrieval.")
 
-    missing = missing_keys()
-    if missing:
-        st.error(f"Missing environment variables: {', '.join(missing)}. Add them to `.env` and restart.")
-        st.stop()
-
-    tab_ask, tab_how = st.tabs(["Ask", "How it works"])
+    tab_overview, tab_ask, tab_how, tab_eval = st.tabs(["Overview", "Ask", "How it works", "Evaluation"])
+    with tab_overview:
+        overview_tab()
     with tab_ask:
-        ask_tab(repo)
+        missing = missing_keys()
+        if missing:
+            st.error(f"Missing environment variables: {', '.join(missing)}. Add them to `.env` and restart.")
+        else:
+            ask_tab(repo)
     with tab_how:
         how_tab()
+    with tab_eval:
+        eval_tab()
 
 
 main()
