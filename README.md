@@ -115,7 +115,7 @@ They're kept separate because they guard against two unrelated failure modes: ba
 |---|---|---|
 | Document Loader | `DirectoryLoader`, Python and Markdown loaded as two separate passes | `ingestion/loader.py` |
 | Text Splitter | `RecursiveCharacterTextSplitter.from_language` — `Language.PYTHON` at `chunk_size=1500 / overlap=100`, `Language.MARKDOWN` at `chunk_size=1000 / overlap=100` (sizes chosen from measured function-boundary evidence, not defaults) | `ingestion/splitter.py` |
-| Embedding Model | `gemini-embedding-001`, used **asymmetrically** — a separate query-type embedder and document-type embedder | throughout `indexing/`, `retrieval/` |
+| Embedding Model | Local `BAAI/bge-small-en-v1.5` by default (or `gemini-embedding-001` via `EMBEDDING_PROVIDER=google`), used **asymmetrically** — a separate query-type embedder and document-type embedder | `utils/models.py` |
 | Vector Store | Chroma, persisted to disk, idempotent via stable per-file chunk IDs | `indexing/vector_store.py` |
 | Advanced Retrieval | MMR via a custom `AsymmetricMMRRetriever`, `k=5, fetch_k=15, lambda_mult=0.3` | `retrieval/mmr_retriever.py` |
 | Query Optimization | Contextual Compression via a custom `StructuredRelevanceFilter` (replaced `LLMChainFilter` — see [Real Bugs](#real-bugs-found-and-fixed)) | `retrieval/mmr_retriever.py` |
@@ -123,7 +123,7 @@ They're kept separate because they guard against two unrelated failure modes: ba
 | Reranking | Local cross-encoder, `cross-encoder/ms-marco-MiniLM-L-6-v2` | `reranker/reranker.py` |
 | Guardrails | `guardrails-ai`, custom `ValidCitations` validator checking every citation against the actual per-call evidence set | `guardrail/validator.py` |
 | Evaluation | RAGAS — Faithfulness, Context Precision, LLM Context Recall | `evals/ragas_eval.py` |
-| LLMs | `gemini-3.5-flash` (grading & correction), `gemini-3.7-flash` (generation), `gemini-3.6-flash` (RAGAS judge) | — |
+| LLMs | Groq — `openai/gpt-oss-120b` (graph & RAGAS judge), `openai/gpt-oss-20b` (standalone grading/correction scripts); all overridable via env | `utils/models.py` |
 
 **Why three different Gemini models?** Grading and correction are high-volume, low-complexity structured-output calls, so the cheaper `gemini-3.5-flash` handles those. Generation needs stronger synthesis, so it runs on `gemini-3.7-flash`. The RAGAS judge runs on `gemini-3.6-flash` instead — `3.7-flash` turned out to be incompatible with the multi-candidate generation requests RAGAS issues internally, so the judge model was pinned to `3.6-flash` specifically to work around that.
 
@@ -202,8 +202,17 @@ Run `python -m evals.ragas_eval` to reproduce.
 **Environment variables** (`.env`):
 
 ```
-GOOGLE_API_KEY=...
+GROQ_API_KEY=...
 TAVILY_API_KEY=...
+```
+
+Copy `.env.example` to `.env` for the full list of optional overrides (model names, embedding provider). Groq has no embeddings API, so embeddings run locally by default; set `EMBEDDING_PROVIDER=google` plus `GOOGLE_API_KEY` to use Gemini embeddings instead. **Changing the embedding provider requires rebuilding the index.**
+
+**Install:**
+
+```bash
+uv venv .venv --python 3.12 && source .venv/bin/activate
+uv pip install -r requirements.txt   # or: pip install -r requirements.txt
 ```
 
 **1. Build the index** against a target repository:

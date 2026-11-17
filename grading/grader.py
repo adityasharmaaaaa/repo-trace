@@ -1,6 +1,6 @@
 from typing import List, Literal
 from langchain_core.documents import Document
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -12,7 +12,7 @@ class DocumentGrade(BaseModel):
 def grade_document(
     query: str,
     document: Document,
-    llm: ChatGoogleGenerativeAI,
+    llm: BaseChatModel,
 ) -> "DocumentGrade":  
     grader_llm=llm.with_structured_output(DocumentGrade)
     grading_prompt = ChatPromptTemplate.from_messages([
@@ -100,7 +100,8 @@ if __name__ == "__main__":
 
     vectorstore = load_vector_store(persist_dir)
     mmr_retriever = build_mmr_retriever(vectorstore)
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0)
+    from utils.models import get_llm
+    llm = get_llm("grading")
     compressed_retriever = build_compressed_retriever(mmr_retriever, llm)
 
     docs = compressed_retriever.invoke(query)

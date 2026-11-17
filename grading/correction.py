@@ -1,6 +1,6 @@
 from typing import List, Literal
 from langchain_core.documents import Document
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_tavily import TavilySearch
@@ -18,7 +18,7 @@ class QueryType(BaseModel):
     )
 
 
-def classify_query(query: str, llm: ChatGoogleGenerativeAI) -> QueryType:
+def classify_query(query: str, llm: BaseChatModel) -> QueryType:
     query_type_prompt = ChatPromptTemplate.from_messages(
         [
             (
@@ -102,7 +102,7 @@ def classify_query(query: str, llm: ChatGoogleGenerativeAI) -> QueryType:
 def refine_query(
     original_query: str,
     graded_documents: List[Document],
-    llm: ChatGoogleGenerativeAI,
+    llm: BaseChatModel,
 ) -> str:
 
     if not graded_documents:
@@ -247,13 +247,10 @@ def web_search_fallback(query: str) -> List[Document]:
     return documents
 
 if __name__ == "__main__":
-    from langchain_google_genai import ChatGoogleGenerativeAI
     from langchain_core.documents import Document
+    from utils.models import get_llm
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-3.5-flash",
-        temperature=0,
-    )
+    llm = get_llm("grading")
 
     # ============================================================
     # TEST 1: classify_query()

@@ -1,11 +1,11 @@
 from typing import List, Optional
 from langchain_core.documents import Document
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 import hashlib
 from pathlib import Path
 
-EMBEDDING_MODEL = "gemini-embedding-001"
+from utils.models import get_document_embedder, get_query_embedder
+
 
 
 def make_chunk_id(doc: Document, chunk_index: int) -> str:
@@ -26,9 +26,7 @@ def build_vector_store(
     chunks: List[Document],
     persist_directory: str,
 ) -> Chroma:
-    document_embedder = GoogleGenerativeAIEmbeddings(
-        model=EMBEDDING_MODEL, task_type="retrieval_document"
-    )
+    document_embedder = get_document_embedder()
     vector_store = Chroma(
         embedding_function=document_embedder,
         persist_directory=persist_directory
@@ -52,9 +50,7 @@ def build_vector_store(
 
 
 def load_vector_store(persist_directory: str) -> Chroma:
-    document_embedder = GoogleGenerativeAIEmbeddings(
-        model=EMBEDDING_MODEL, task_type="retrieval_document"
-    )
+    document_embedder = get_document_embedder()
     vector_store = Chroma(
         persist_directory=persist_directory,
         embedding_function=document_embedder
@@ -67,10 +63,7 @@ def query_store(
     query: str,
     k: int = 5,
 ) -> List[Document]:
-    query_embedder = GoogleGenerativeAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        task_type="retrieval_query",
-    )
+    query_embedder = get_query_embedder()
 
     query_vector = query_embedder.embed_query(query)
 

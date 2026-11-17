@@ -2,7 +2,8 @@ from typing import List
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
 from langchain_chroma import Chroma
 from langchain_classic.retrievers.document_compressors import LLMChainFilter
 from langchain_classic.retrievers import ContextualCompressionRetriever
@@ -12,13 +13,15 @@ from langchain_core.documents import Document
 from langchain_core.documents.compressor import BaseDocumentCompressor
 from pydantic import BaseModel, Field
 
+from utils.models import get_llm, get_query_embedder
+
 
 class RelevanceDecision(BaseModel):
     relevant: bool = Field(..., description="Whether this document is relevant to the query.")
 
 
 class StructuredRelevanceFilter(BaseDocumentCompressor):
-    llm: ChatGoogleGenerativeAI
+    llm: BaseChatModel
 
     def compress_documents(self, documents, query, callbacks=None) -> List[Document]:
         judge = self.llm.with_structured_output(RelevanceDecision)
@@ -31,12 +34,11 @@ class StructuredRelevanceFilter(BaseDocumentCompressor):
             if decision.relevant:
                 kept.append(doc)
         return kept
-EMBEDDING_MODEL = "gemini-embedding-001"
 
 
 class AsymmetricMMRRetriever(BaseRetriever):
     vectorstore: Chroma
-    query_embedder: GoogleGenerativeAIEmbeddings
+    query_embedder: Embeddings
     k: int = 5
     fetch_k: int = 15
     lambda_mult: float = 0.3
@@ -62,10 +64,7 @@ def build_mmr_retriever(
     fetch_k: int = 15,
     lambda_mult: float = 0.3,
 ) -> AsymmetricMMRRetriever:
-    query_embedder = GoogleGenerativeAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        task_type="retrieval_query",
-    )
+    query_embedder = get_query_embedder()
     return AsymmetricMMRRetriever(
         vectorstore=vectorstore,
         query_embedder=query_embedder,
@@ -77,7 +76,7 @@ def build_mmr_retriever(
 
 def build_compressed_retriever(
     base_retriever: BaseRetriever,
-    llm: ChatGoogleGenerativeAI,
+    llm: BaseChatModel,
 ) -> ContextualCompressionRetriever:
     
     # Create a strict prompt that discourages repeating the question's phrasin
@@ -111,7 +110,7 @@ if __name__ == "__main__":
         print(f"\n--- result {i} ({doc.metadata.get('source')}) - {len(doc.page_content)} chars ---")
         print(doc.page_content[:200])
 
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0)
+    llm = get_llm("grading")
     compressed_retriever = build_compressed_retriever(mmr_retriever, llm)
 
     print("\n" + "=" * 70)

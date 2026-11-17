@@ -1,10 +1,9 @@
 from typing import List
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.language_models import BaseChatModel
 from utils.llm_helpers import extract_text
 
-LLM_MODEL = "gemini-3.7-flash"
 
 
 def format_context(documents: List[Document]) -> str:
@@ -24,7 +23,7 @@ def format_context(documents: List[Document]) -> str:
 def generate_answer(
     query: str,
     documents: List[Document],
-    llm: ChatGoogleGenerativeAI,
+    llm: BaseChatModel,
 ) -> str:
     system_prompt = """You are an expert developer assistant answering a question about a codebase.
     
@@ -73,7 +72,8 @@ if __name__ == "__main__":
     import sys
     sys.path.insert(0, "..")
 
-    llm = ChatGoogleGenerativeAI(model=LLM_MODEL, temperature=0)
+    from utils.models import get_llm
+    llm = get_llm("generation")
 
     # Test 1: strong internal evidence
     query = "how does the router decide which node to call?"

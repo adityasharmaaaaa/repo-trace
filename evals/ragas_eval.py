@@ -10,14 +10,12 @@ from ragas.dataset_schema import SingleTurnSample
 from ragas.metrics import Faithfulness, ResponseRelevancy, ContextPrecision, LLMContextRecall
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
 from graph.build_graph import build_graph
+from utils.models import get_llm, get_query_embedder
 
 
 # -----------------------------------
-JUDGE_MODEL = "gemini-3.6-flash"
-EMBEDDING_MODEL = "gemini-embedding-001"
 
 REFUSAL_PHRASES = [
     "The provided context does not contain enough information to answer this question",
@@ -228,10 +226,8 @@ def check_correct_refusal(answer: str) -> bool:
 # ---------------------------------------------------------------- evaluate
 
 def build_evaluator():
-    judge_llm = LangchainLLMWrapper(ChatGoogleGenerativeAI(model=JUDGE_MODEL, temperature=0))
-    embeddings = LangchainEmbeddingsWrapper(
-        GoogleGenerativeAIEmbeddings(model=EMBEDDING_MODEL, task_type="RETRIEVAL_QUERY")
-    )
+    judge_llm = LangchainLLMWrapper(get_llm("judge"))
+    embeddings = LangchainEmbeddingsWrapper(get_query_embedder())
     return judge_llm, embeddings
 
 

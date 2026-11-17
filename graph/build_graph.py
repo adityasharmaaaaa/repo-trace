@@ -3,7 +3,6 @@ import operator
 from pathlib import Path
 
 from langchain_core.documents import Document
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, START, END
 
 from indexing.vector_store import load_vector_store
@@ -13,19 +12,16 @@ from grading.correction import classify_query, refine_query, web_search_fallback
 from reranker.reranker import rerank_documents
 from generator.generator import generate_answer
 from guardrail.validator import build_guarded_generation_guard
+from utils.models import get_llm
 
 # ---------------------------------------------------------------- config
 
-LLM_MODEL = "gemini-3.7-flash"
 MAX_CORRECTION_RETRIES = 2
 MAX_GUARDRAILS_RETRIES = 2
 
 DEBUG = True
 
-llm = ChatGoogleGenerativeAI(
-    model=LLM_MODEL,
-    temperature=0,
-)
+llm = get_llm("generation")
 vectorstore = load_vector_store("./chroma_store")
 mmr_retriever = build_mmr_retriever(vectorstore)
 compressed_retriever = build_compressed_retriever(mmr_retriever, llm)
